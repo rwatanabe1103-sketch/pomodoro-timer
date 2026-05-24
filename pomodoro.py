@@ -23,8 +23,6 @@ SHORT_BREAK    = 5
 LONG_BREAK     = 15
 LONG_BREAK_EVERY = 4  # long break after every 4 pomodoros
 
-running = True
-
 def clear_line():
     sys.stdout.write("\r\033[K")
     sys.stdout.flush()
