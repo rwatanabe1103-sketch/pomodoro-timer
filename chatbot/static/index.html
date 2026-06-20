@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Example Store — チャットボットデモ</title>
+<style>
+  :root {
+    --brand: #2b6cb0;
+    --brand-dark: #234e7d;
+    --bg: #f5f6f8;
+    --bubble-bot: #eef2f7;
+    --bubble-user: #2b6cb0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: #1a202c;
+  }
+  /* --- ダミーの EC ページ --- */
+  header {
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 24px;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 24px; }
+  .hero { font-size: 22px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; }
+  .card .price { color: var(--brand); font-weight: bold; }
+  .card .cat { color: #718096; font-size: 12px; }
+
+  /* --- チャットウィジェット --- */
+  #chat-toggle {
+    position: fixed; right: 24px; bottom: 24px;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--brand); color: #fff; border: none;
+    font-size: 26px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.2);
+    z-index: 1000;
+  }
+  #chat-panel {
+    position: fixed; right: 24px; bottom: 96px;
+    width: 360px; max-width: calc(100vw - 32px); height: 520px; max-height: 70vh;
+    background: #fff; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    display: none; flex-direction: column; overflow: hidden; z-index: 1000;
+  }
+  #chat-panel.open { display: flex; }
+  .chat-header {
+    background: var(--brand); color: #fff; padding: 14px 16px; font-weight: bold;
+  }
+  .chat-header small { display: block; font-weight: normal; opacity: .85; font-size: 12px; }
+  .chat-log { flex: 1; padding: 16px; overflow-y: auto; }
+  .msg { margin-bottom: 12px; display: flex; }
+  .msg .text {
+    padding: 10px 13px; border-radius: 14px; max-width: 80%;
+    font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.bot .text { background: var(--bubble-bot); border-top-left-radius: 4px; }
+  .msg.user { justify-content: flex-end; }
+  .msg.user .text { background: var(--bubble-user); color: #fff; border-top-right-radius: 4px; }
+  .tag {
+    font-size: 10px; color: #718096; margin: 2px 0 0 4px; align-self: flex-end;
+  }
+  .chat-input { display: flex; border-top: 1px solid #e2e8f0; padding: 8px; gap: 8px; }
+  .chat-input input {
+    flex: 1; border: 1px solid #cbd5e0; border-radius: 20px; padding: 10px 14px; font-size: 14px;
+  }
+  .chat-input button {
+    background: var(--brand); color: #fff; border: none; border-radius: 20px;
+    padding: 0 16px; cursor: pointer; font-size: 14px;
+  }
+  .chat-input button:disabled { opacity: .5; cursor: default; }
+  .suggestions { padding: 0 16px 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .suggestions button {
+    background: #edf2f7; border: 1px solid #e2e8f0; border-radius: 14px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer; color: #2d3748;
+  }
+</style>
+</head>
+<body>
+  <header>🛍 Example Store</header>
+  <main>
+    <div class="hero">人気のガジェットをお届け</div>
+    <div class="grid" id="product-grid"></div>
+  </main>
+
+  <button id="chat-toggle" aria-label="チャットを開く">💬</button>
+
+  <div id="chat-panel">
+    <div class="chat-header">
+      サポートチャット
+      <small>FAQ即答 ＋ AIアシスタント</small>
+    </div>
+    <div class="chat-log" id="chat-log"></div>
+    <div class="suggestions" id="suggestions">
+      <button>送料はいくらですか？</button>
+      <button>返品はできますか？</button>
+      <button>ワイヤレスイヤホンの在庫はありますか？</button>
+    </div>
+    <div class="chat-input">
+      <input id="chat-text" placeholder="質問を入力..." autocomplete="off" />
+      <button id="chat-send">送信</button>
+    </div>
+  </div>
+
+<script>
+// ダミー商品カード
+const PRODUCTS = [
+  { name: "ワイヤレスイヤホン Air Pro", cat: "オーディオ", price: 12800 },
+  { name: "スマートウォッチ Vita 2", cat: "ウェアラブル", price: 19800 },
+  { name: "モバイルバッテリー Charge 10000", cat: "アクセサリー", price: 3980 },
+  { name: "USB-C 充電ケーブル 2m", cat: "アクセサリー", price: 1280 },
+  { name: "Bluetoothスピーカー Sound Cube", cat: "オーディオ", price: 8800 },
+];
+document.getElementById("product-grid").innerHTML = PRODUCTS.map(p => `
+  <div class="card">
+    <div class="cat">${p.cat}</div>
+    <h3>${p.name}</h3>
+    <div class="price">¥${p.price.toLocaleString()}</div>
+  </div>`).join("");
+
+const panel = document.getElementById("chat-panel");
+const log = document.getElementById("chat-log");
+const input = document.getElementById("chat-text");
+const sendBtn = document.getElementById("chat-send");
+
+document.getElementById("chat-toggle").addEventListener("click", () => {
+  panel.classList.toggle("open");
+  if (panel.classList.contains("open") && log.childElementCount === 0) {
+    addMessage("bot", "こんにちは！Example Store のサポートです。配送・返品・お支払い・商品についてお気軽にどうぞ。");
+  }
+});
+
+function addMessage(role, text, tag) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + role;
+  const bubble = document.createElement("div");
+  bubble.className = "text";
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  if (tag) {
+    const t = document.createElement("div");
+    t.className = "tag";
+    t.textContent = tag;
+    wrap.appendChild(t);
+  }
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  return bubble;
+}
+
+async function send(text) {
+  if (!text.trim()) return;
+  addMessage("user", text);
+  input.value = "";
+  sendBtn.disabled = true;
+  const thinking = addMessage("bot", "…");
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    thinking.textContent = data.reply;
+    const label = { faq: "FAQ", ai: "AI", fallback: "案内" }[data.source] || "";
+    thinking.parentElement.appendChild(Object.assign(
+      document.createElement("div"), { className: "tag", textContent: label }));
+  } catch (e) {
+    thinking.textContent = "通信エラーが発生しました。時間をおいて再度お試しください。";
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+sendBtn.addEventListener("click", () => send(input.value));
+input.addEventListener("keydown", e => { if (e.key === "Enter") send(input.value); });
+document.getElementById("suggestions").addEventListener("click", e => {
+  if (e.target.tagName === "BUTTON") send(e.target.textContent);
+});
+</script>
+</body>
+</html>
