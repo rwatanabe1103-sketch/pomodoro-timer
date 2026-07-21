@@ -42,9 +42,15 @@ for pno in range(src.page_count):
     ys = np.clip(np.arange(CH)-oy, 0, ch-1)
     xs = np.clip(np.arange(CW)-ox, 0, cw-1)
     canvas = sc[ys][:, xs].copy()  # (CH,CW,3)
-    # 下端はフッターが白地なので、内容の下端より下は白で塗り足し（ロゴ尾引き防止）
+    # 下端は中央にロゴ等があり端ピクセル延長だと尾引くため、
+    # 下端の「背景色」（左右の角から採取。表=クリーム/裏=白）で塗り足す
     content_bottom = oy + ch
-    canvas[content_bottom:, :, :] = 255
+    strip = sc[max(0, ch-6):ch, :, :]
+    ew = max(1, int(cw*0.06))
+    bg_samples = np.vstack([strip[:, :ew, :].reshape(-1, 3),
+                            strip[:, cw-ew:, :].reshape(-1, 3)])
+    bg = np.median(bg_samples, axis=0).astype(np.uint8)
+    canvas[content_bottom:, :, :] = bg
     img = Image.fromarray(canvas, "RGB")
     # JPEGにしてPDFへ
     buf = io.BytesIO(); img.save(buf, format="JPEG", quality=92); buf.seek(0)
