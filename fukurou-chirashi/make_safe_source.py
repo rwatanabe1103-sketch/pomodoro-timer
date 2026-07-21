@@ -24,33 +24,29 @@ for pno in range(src.page_count):
     pg = src[pno]
     W_pt, H_pt = pg.rect.width, pg.rect.height
     W_mm, H_mm = W_pt/MM, H_pt/MM
-    # 仕上がり(トリム=3mm inset)内の内容をレンダリング（左右/上は帯色が仕上がり線まで来ている）
-    clip = fitz.Rect(BLEED*MM, BLEED*MM, (W_mm-BLEED)*MM, (H_mm-BLEED)*MM)
-    pix = pg.get_pixmap(clip=clip, dpi=DPI, colorspace=fitz.csRGB)
-    fin = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     px_per_mm = DPI/25.4
+    # ページ全体をレンダリング（ロゴ等が仕上がり線より下にあっても切らない）
+    pix = pg.get_pixmap(dpi=DPI, colorspace=fitz.csRGB)
+    art = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)[:, :, :3].copy()
+    Ah, Aw = art.shape[0], art.shape[1]
+    # 元データの塗り足し不良を、仕上がり線(3mm inset)の色で補修（左・右・上のみ。下はロゴを残す）
+    tl = int(round(BLEED*px_per_mm)); tr = Aw - tl
+    tt = int(round(BLEED*px_per_mm))
+    art[:, tr:, :] = art[:, tr-1:tr, :]     # 右塗り足し：仕上がり線の色で延長
+    art[:, :tl, :] = art[:, tl:tl+1, :]     # 左塗り足し
+    art[:tt, :, :] = art[tt:tt+1, :, :]     # 上塗り足し
+    fin = Image.fromarray(art, "RGB")
     CW = int(round(W_mm*px_per_mm)); CH = int(round(H_mm*px_per_mm))
-    # 仕上がり内容を S 縮小
+    # ページ全体を S 縮小（ロゴも一律縮小され、仕上がり線から余白ができる）
     cw = max(1,int(round(fin.width*S))); ch = max(1,int(round(fin.height*S)))
     scaled = fin.resize((cw, ch), Image.LANCZOS)
-    sc = np.asarray(scaled)  # (ch,cw,3)
-    # 仕上がり内で中央寄せ（bleed 分内側から配置）
-    fin_x0 = BLEED*px_per_mm; fin_y0 = BLEED*px_per_mm
-    ox = int(round(fin_x0 + (fin.width - cw)/2.0))
-    oy = int(round(fin_y0 + (fin.height - ch)/2.0))
-    # 上・左・右は端ピクセル延長（帯色が仕上がり線まであるので正しい色になる）
+    sc = np.asarray(scaled)
+    # キャンバス中央に配置（縮小で空いた縁は端ピクセル延長で塗り足し生成）
+    ox = int(round((CW - cw)/2.0))
+    oy = int(round((CH - ch)/2.0))
     ys = np.clip(np.arange(CH)-oy, 0, ch-1)
     xs = np.clip(np.arange(CW)-ox, 0, cw-1)
-    canvas = sc[ys][:, xs].copy()  # (CH,CW,3)
-    # 下端は中央にロゴ等があり端ピクセル延長だと尾引くため、
-    # 下端の「背景色」（左右の角から採取。表=クリーム/裏=白）で塗り足す
-    content_bottom = oy + ch
-    strip = sc[max(0, ch-6):ch, :, :]
-    ew = max(1, int(cw*0.06))
-    bg_samples = np.vstack([strip[:, :ew, :].reshape(-1, 3),
-                            strip[:, cw-ew:, :].reshape(-1, 3)])
-    bg = np.median(bg_samples, axis=0).astype(np.uint8)
-    canvas[content_bottom:, :, :] = bg
+    canvas = sc[ys][:, xs].copy()
     img = Image.fromarray(canvas, "RGB")
     # JPEGにしてPDFへ
     buf = io.BytesIO(); img.save(buf, format="JPEG", quality=92); buf.seek(0)
