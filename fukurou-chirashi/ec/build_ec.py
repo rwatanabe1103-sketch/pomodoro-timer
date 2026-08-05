@@ -115,7 +115,6 @@ def main_html(p):
   <div class="brand"><span>FUKURŌ &#10005; INTERIOR GREEN</span></div>
   <img class="product" src="{p['prod']}">
   <div class="foot">
-    <div class="badge">{p['type']}</div>
     <div class="pname mincho">{p['name']}</div>
   </div>
 </div>"""
