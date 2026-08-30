@@ -1,20 +1,14 @@
 # HANDOFF
 
-- 更新: 2026-08-26 12:10 JST
-- 更新者: Claude Code
-- 対象Issue: #2
-- 作業ブランチ: claude/ai-collaboration-structure-261j0e
-- PR: #3
-- 状態: レビュー待ち
+- 更新: 2026-08-31 / 更新者: Codex
+- ブランチ: main
+- 状態: 完了
 
 ## いま何をしていたか
-AI協働の初期構成（AGENTS.md / CLAUDE.md / HANDOFF.md / handoff スキル / .agents/skills の symlink）を
-作成し、symlink 経由のスキル認識を Codex・Claude 双方で検証。Codex の指摘6点を反映して PR #3 を作成した。
+Codex・Claude Code間の引き継ぎ基盤を導入し、GitHub書き込みとCodex Cloudでのhandoffスキル認識まで確認した。
 
 ## 次にやること
-- PR #3 のレビューとマージ
-- Codex のクラウド実行環境でスキル認識を確認する（現在ローカル CLI のみ検証済み）
-- gyomu-tanaoroshi / product-info-tool へ同じ構成を横展開する
+- 新しい作業が発生したらIssueを作成して着手する
 
-## 詰まっている点・人間の判断が必要な点
+## 詰まっている点・判断が必要な点
 なし
